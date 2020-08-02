@@ -1,5 +1,5 @@
 apply plugin: 'com.android.application'
-
+def dbflow_version = "4.2.1"
 android {
     compileSdkVersion 29
     buildToolsVersion "29.0.3"
@@ -30,7 +30,7 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
-
+    implementation 'androidx.recyclerview:recyclerview:1.1.0'
 //    //3D地图so及jar
 ////    implementation 'com.amap.api:3dmap:latest.integration'
     //导航包含3D地图
@@ -39,4 +39,10 @@ dependencies {
     implementation 'com.amap.api:location:latest.integration'
     //搜索功能
     implementation 'com.amap.api:search:latest.integration'
+
+    annotationProcessor "com.github.Raizlabs.DBFlow:dbflow-processor:${dbflow_version}"
+    implementation "com.github.Raizlabs.DBFlow:dbflow-core:${dbflow_version}"
+    implementation "com.github.Raizlabs.DBFlow:dbflow-rx:${dbflow_version}"
+    implementation "com.github.Raizlabs.DBFlow:dbflow:${dbflow_version}"
+
 }

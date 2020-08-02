@@ -6,6 +6,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -24,26 +25,36 @@ import com.amap.api.maps.AMap;
 import com.amap.api.maps.CameraUpdateFactory;
 import com.amap.api.maps.MapView;
 import com.amap.api.maps.UiSettings;
+import com.amap.api.maps.model.GroundOverlay;
 import com.amap.api.maps.model.LatLng;
 import com.amap.api.maps.model.MyLocationStyle;
 import com.amap.api.maps.model.PolylineOptions;
+import com.amap.api.navi.view.AmapCameraOverlay;
+import com.example.coach.dbFlow.DBUtils;
+import com.example.coach.dbFlow.LocationRecord;
 
 import org.w3c.dom.Text;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+    public static AMap aMap;
     //声明AMapLocationClient类对象
-    public AMapLocationClient mLocationClient = null;
+    private AMapLocationClient mLocationClient = null;
     //声明AMapLocationClientOption对象
-    public AMapLocationClientOption mLocationOption = null;
-    MapView mMapView;
-    AMap aMap;
-    MyLocationStyle myLocationStyle;
-    TextView text;
-    Button button;
-    int buttonFlag=1;
+    private AMapLocationClientOption mLocationOption = null;
+    private MapView mMapView;
+    private MyLocationStyle myLocationStyle;
+    private AMapLocation privLocation;
+    private int groupId;
+    private TextView text;
+    private Button locationInfoButton;
+    private Button stopLocationButton;
+    private boolean displayLocation = false;
+    private boolean stopOrStartLocation = true;
+    private List<LocationRecord> locationList = new ArrayList<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,12 +66,20 @@ public class MainActivity extends AppCompatActivity {
         if (aMap == null) {
             aMap = mMapView.getMap();
         }
-        aMap.moveCamera(CameraUpdateFactory.zoomTo(15));
+        initActivity();
         initPosition();
+        if (permissionsGrant()) {
+            initLocation();
+        }
+    }
+
+    private void initActivity() {
         text = findViewById(R.id.text);
         text.setVisibility(View.GONE);
-        button=findViewById(R.id.button_info);
-        button.setOnClickListener(buttonListener);
+        locationInfoButton = findViewById(R.id.button_info);
+        locationInfoButton.setOnClickListener(this);
+        stopLocationButton = findViewById(R.id.stop_location);
+        stopLocationButton.setOnClickListener(this);
     }
 
     private void setFloatMapUi(AMap aMap) {
@@ -137,8 +156,8 @@ public class MainActivity extends AppCompatActivity {
         mLocationClient.setLocationOption(mLocationOption);
         //设置场景模式后最好调用一次stop，再调用start以保证场景模式生效
         mLocationClient.stopLocation();
-        mLocationClient.startLocation();
-        //        //设置定位回调监听
+//      mLocationClient.startLocation();
+        //设置定位回调监听
         mLocationClient.setLocationListener(aMapLocationListener);
     }
 
@@ -177,7 +196,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 //        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        Log.e("dddddddd", "onRequestPermissionsResult: "+grantResults.length );
         switch (requestCode) {
             case 1:
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -191,7 +209,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    AMapLocation privLocation;
+
     //声明定位监听器
     public AMapLocationListener aMapLocationListener = new AMapLocationListener() {
         @Override
@@ -199,54 +217,126 @@ public class MainActivity extends AppCompatActivity {
             //AMapLocation包含经度纬度国家省份。。所有位置信息
 
             if (aMapLocation != null) {
-                StringBuffer sb = new StringBuffer();
-                if (aMapLocation.getErrorCode() == 0) {
-                    //可在其中解析amapLocation获取相应内容。
-                    sb.append("定位成功" + "\n");
-                    sb.append("定位类型: " + aMapLocation.getLocationType() + "\n");
-                    sb.append("经    度    : " + aMapLocation.getLongitude() + "\n");
-                    sb.append("纬    度    : " + aMapLocation.getLatitude() + "\n");
-                    sb.append("精    度    : " + aMapLocation.getAccuracy() + "米" + "\n");
-                    sb.append("提供者    : " + aMapLocation.getProvider() + "\n");
+                if (displayLocation) printLocationMessage(aMapLocation);
+                //对定位数据实时存储
+                Log.e("wwww", "onLocationChanged: " + aMapLocation.getLatitude());
+                locationList.add(new LocationRecord()
+                        .setGroupId(groupId+ 1)
+                        .setLatitude(aMapLocation.getLatitude())
+                        .setLongitude(aMapLocation.getLongitude()));
+                //一边定位一边连线
+                drawLines(aMapLocation);
+                privLocation = aMapLocation;
+            }
+        }
+    };
 
-                    sb.append("速    度    : " + aMapLocation.getSpeed() + "米/秒" + "\n");
-                    sb.append("角    度    : " + aMapLocation.getBearing() + "\n");
-                    sb.append("***定位质量报告***").append("\n");
-                    sb.append("* WIFI开关：").append(aMapLocation.getLocationQualityReport().isWifiAble() ? "开启":"关闭").append("\n");
-                    sb.append("* GPS状态：").append(getGPSStatusString(aMapLocation.getLocationQualityReport().getGPSStatus())).append("\n");
-                    sb.append("* GPS星数：").append(aMapLocation.getLocationQualityReport().getGPSSatellites()).append("\n");
-                    sb.append("* 网络类型：" + aMapLocation.getLocationQualityReport().getNetworkType()).append("\n");
-                    sb.append("* 网络耗时：" + aMapLocation.getLocationQualityReport().getNetUseTime()).append("\n");
-                    text.setText(sb.toString());
-                    Log.d("位置信息", "onLocationChanged: " + aMapLocation.getLongitude());
-                    //一边定位一边连线
-                    drawLines(aMapLocation);
-                    privLocation = aMapLocation;
+    private void printLocationMessage(AMapLocation location) {
+        StringBuffer sb = new StringBuffer();
+        if (location.getErrorCode() == 0) {
+            sb.append("定位成功" + "\n");
+            sb.append("定位类型: " + getLocationMessageString(location.getLocationType()) + "\n");
+            sb.append("经    度    : " + location.getLongitude() + "\n");
+            sb.append("纬    度    : " + location.getLatitude() + "\n");
+            sb.append("精    度    : " + location.getAccuracy() + "米" + "\n");
+            sb.append("提供者    : " + location.getProvider() + "\n");
 
+            sb.append("速    度    : " + location.getSpeed() + "米/秒" + "\n");
+            sb.append("角    度    : " + location.getBearing() + "\n");
+            // 获取当前提供定位服务的卫星个数
+//            sb.append("星    数    : " + location.getSatellites() + "\n");
+//            sb.append("国    家    : " + location.getCountry() + "\n");
+//            sb.append("省            : " + location.getProvince() + "\n");
+//            sb.append("市            : " + location.getCity() + "\n");
+//            sb.append("城市编码 : " + location.getCityCode() + "\n");
+//            sb.append("区            : " + location.getDistrict() + "\n");
+//            sb.append("区域 码   : " + location.getAdCode() + "\n");
+//            sb.append("地    址    : " + location.getAddress() + "\n");
+//            sb.append("兴趣点    : " + location.getPoiName() + "\n");
+        } else {
+            //定位失败
+            sb.append("定位失败" + "\n");
+            sb.append("错误码:" + location.getErrorCode() + "\n");
+            sb.append("错误信息:" + location.getErrorInfo() + "\n");
+            sb.append("错误描述:" + location.getLocationDetail() + "\n");
+        }
+        sb.append("***定位质量报告***").append("\n");
+        sb.append("* WIFI开关：").append(location.getLocationQualityReport().isWifiAble() ? "开启" : "关闭").append("\n");
+        sb.append("* GPS状态：").append(getGPSStatusString(location.getLocationQualityReport().getGPSStatus())).append("\n");
+        sb.append("* GPS星数：").append(location.getLocationQualityReport().getGPSSatellites()).append("\n");
+        sb.append("* 网络类型：" + location.getLocationQualityReport().getNetworkType()).append("\n");
+        sb.append("* 网络耗时：" + location.getLocationQualityReport().getNetUseTime()).append("\n");
+        sb.append("****************").append("\n");
+        text.setText(sb.toString());
+    }
+
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.button_info:
+                if (!displayLocation) {
+                    text.setVisibility(View.VISIBLE);
+                    displayLocation = true;
                 } else {
-                    //定位失败时，可通过ErrCode（错误码）信息来确定失败的原因，errInfo是错误信息，详见错误码表。
-                    Log.e("AmapError", "location Error, ErrCode:"
-                            + aMapLocation.getErrorCode() + ", errInfo:"
-                            + aMapLocation.getErrorInfo());
+                    text.setVisibility(View.GONE);
+                    displayLocation = false;
                 }
-            }
+                break;
+            case R.id.stop_location:
+                if (stopOrStartLocation) {
+                    groupId=DBUtils.selectLastGroupId();
+                    mLocationClient.startLocation();
+                    stopLocationButton.setText("停止定位，存储定位数据");
+                    stopOrStartLocation = false;
+                } else {
+                    mLocationClient.stopLocation();
+                    //存储定位数据
+                    stopLocationButton.setText("开始定位，获取定位数据");
+                    stopOrStartLocation = true;
+                    DBUtils.storeLocation(locationList);
+                    locationList.clear();
+                }
+                break;
+            default:
         }
-    };
-    private View.OnClickListener buttonListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            if (buttonFlag == 1) {
-                text.setVisibility(View.GONE);
-                buttonFlag=-buttonFlag;
-            }else{
-                text.setVisibility(View.VISIBLE);
-                buttonFlag=-buttonFlag;
-            }
-        }
-    };
-    private String getGPSStatusString(int statusCode){
+    }
+
+    private String getLocationMessageString(int locationType) {
         String str = "";
-        switch (statusCode){
+        switch (locationType) {
+            case 0:
+                str = "定位失败";
+                break;
+            case 1:
+                str = "GPS定位结果";
+                break;
+            case 2:
+                str = "前次定位结果";
+                break;
+            case 4:
+                str = "缓存定位结果";
+                break;
+            case 5:
+                str = "Wifi定位结果";
+                break;
+            case 6:
+                str = "基站定位结果";
+                break;
+            case 8:
+                str = "离线定位结果";
+                break;
+            case 9:
+                str = "最后位置缓存";
+                break;
+            default:
+
+        }
+        return str;
+    }
+
+    private String getGPSStatusString(int statusCode) {
+        String str = "";
+        switch (statusCode) {
             case AMapLocationQualityReport.GPS_STATUS_OK:
                 str = "GPS状态正常";
                 break;
@@ -265,6 +355,7 @@ public class MainActivity extends AppCompatActivity {
         }
         return str;
     }
+
     public void drawLines(AMapLocation curLocation) {
 
         if (null == privLocation) {
@@ -282,6 +373,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
     }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -295,22 +387,21 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         //在activity执行onResume时执行mMapView.onResume ()，重新绘制加载地图
         mMapView.onResume();
-        if (permissionsGrant()) {
-            initLocation();
-        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
 //        在activity执行onPause时执行mMapView.onPause ()，暂停地图的绘制
-          mMapView.onPause();
+        mMapView.onPause();
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
 //        在activity执行onSaveInstanceState时执行mMapView.onSaveInstanceState (outState)，保存地图当前的状态
-         mMapView.onSaveInstanceState(outState);
+        mMapView.onSaveInstanceState(outState);
     }
+
+
 }

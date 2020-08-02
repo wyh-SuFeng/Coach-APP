@@ -1,34 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    tools:context=".MainActivity"
+    android:id="@+id/parent_layout">
+<FrameLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.amap.api.maps.MapView
+        android:id="@+id/map"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        />
     <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
         android:id="@+id/text"
-        android:background="#00574B"
-        />
-    <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="Hello World!"
-        android:id="@+id/text2"
         android:background="#00574B"
+        android:layout_gravity="center"
         />
+</FrameLayout>
 
+
+    <Button
+        android:id="@+id/stop_location"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="开始定位，获取定位数据"
+        app:layout_constraintBottom_toTopOf="@+id/button_info"
+        />
     <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/button_info"
         android:text="显示/隐藏详细定位信息"
+        app:layout_constraintBottom_toBottomOf="parent"
       />
-    <com.amap.api.maps.MapView
-        android:id="@+id/map"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"/>
-</LinearLayout>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>
