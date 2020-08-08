@@ -10,11 +10,22 @@ public class RunRecord extends BaseModel {
     @PrimaryKey(autoincrement = true)
     private int id;
     @Column
+    private int groupId;
+    @Column
     private double distance;
     @Column
     private String time;
     @Column
-    private long duration;
+    private String duration;
+
+    public int getGroupId() {
+        return groupId;
+    }
+
+    public RunRecord setGroupId(int groupId) {
+        this.groupId = groupId;
+        return this;
+    }
 
     public int getId() {
         return id;
@@ -28,23 +39,25 @@ public class RunRecord extends BaseModel {
         return distance;
     }
 
-    public void setDistance(double distance) {
+    public RunRecord setDistance(double distance) {
         this.distance = distance;
+        return this;
     }
 
     public String getTime() {
         return time;
     }
 
-    public void setTime(String time) {
+    public RunRecord setTime(String time) {
         this.time = time;
+        return this;
     }
 
-    public long getDuration() {
+    public String getDuration() {
         return duration;
     }
-
-    public void setDuration(long duration) {
+    public RunRecord setDuration(String duration) {
         this.duration = duration;
+        return this;
     }
 }

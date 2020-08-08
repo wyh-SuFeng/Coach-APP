@@ -26,23 +26,22 @@
     <application
         android:name=".MyApplication"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/spot"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@mipmap/spot"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".test"></activity>
-        <activity android:name=".MapActivity">
-        </activity>
-
         <service android:name="com.amap.api.location.APSService" />
 
         <meta-data
             android:name="com.amap.api.v2.apikey"
             android:value="79b43b013e3f437b6287601959ecdae1" />
 
+        <activity android:name=".test"></activity>
+        <activity android:name=".MapActivity"></activity>
+        <activity android:name=".Record.RecordActivity"></activity>
+        <activity android:name=".Record.RecordShowActivity"></activity>
         <activity android:name=".MainActivity">
-
              <intent-filter>
              <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

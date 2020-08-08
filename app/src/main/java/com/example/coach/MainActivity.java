@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -22,6 +23,7 @@ import com.amap.api.location.AMapLocationClientOption;
 import com.amap.api.location.AMapLocationListener;
 import com.amap.api.location.AMapLocationQualityReport;
 import com.amap.api.maps.AMap;
+import com.amap.api.maps.AMapUtils;
 import com.amap.api.maps.CameraUpdateFactory;
 import com.amap.api.maps.MapView;
 import com.amap.api.maps.UiSettings;
@@ -30,8 +32,10 @@ import com.amap.api.maps.model.LatLng;
 import com.amap.api.maps.model.MyLocationStyle;
 import com.amap.api.maps.model.PolylineOptions;
 import com.amap.api.navi.view.AmapCameraOverlay;
+import com.example.coach.Record.RecordActivity;
 import com.example.coach.dbFlow.DBUtils;
 import com.example.coach.dbFlow.LocationRecord;
+import com.example.coach.utils.LogUtil;
 
 import org.w3c.dom.Text;
 
@@ -47,10 +51,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private MapView mMapView;
     private MyLocationStyle myLocationStyle;
     private AMapLocation privLocation;
-    private int groupId;
+    private long beginRecordLocationTime;
+    private double distance;
+    private int preGroupId;
     private TextView text;
     private Button locationInfoButton;
     private Button stopLocationButton;
+    private Button LocationRecordButton;
     private boolean displayLocation = false;
     private boolean stopOrStartLocation = true;
     private List<LocationRecord> locationList = new ArrayList<>();
@@ -70,7 +77,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         initPosition();
         if (permissionsGrant()) {
             initLocation();
+            LogUtil.d("onCreat", "kkkkkkkkk");
         }
+
     }
 
     private void initActivity() {
@@ -80,6 +89,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         locationInfoButton.setOnClickListener(this);
         stopLocationButton = findViewById(R.id.stop_location);
         stopLocationButton.setOnClickListener(this);
+        LocationRecordButton=findViewById(R.id.location_record);
+        LocationRecordButton.setOnClickListener(this);
     }
 
     private void setFloatMapUi(AMap aMap) {
@@ -215,22 +226,59 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         @Override
         public void onLocationChanged(AMapLocation aMapLocation) {
             //AMapLocation包含经度纬度国家省份。。所有位置信息
-
             if (aMapLocation != null) {
                 if (displayLocation) printLocationMessage(aMapLocation);
                 //对定位数据实时存储
                 Log.e("wwww", "onLocationChanged: " + aMapLocation.getLatitude());
                 locationList.add(new LocationRecord()
-                        .setGroupId(groupId+ 1)
+                        .setGroupId(preGroupId+ 1)
                         .setLatitude(aMapLocation.getLatitude())
                         .setLongitude(aMapLocation.getLongitude()));
                 //一边定位一边连线
                 drawLines(aMapLocation);
+                //一边定位一边计算距离
+                addDrawDistance(aMapLocation);
                 privLocation = aMapLocation;
             }
         }
     };
-
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.button_info:
+                if (!displayLocation) {
+                    text.setVisibility(View.VISIBLE);
+                    displayLocation = true;
+                } else {
+                    text.setVisibility(View.GONE);
+                    displayLocation = false;
+                }
+                break;
+            case R.id.stop_location:
+                if (stopOrStartLocation) {
+                    preGroupId=DBUtils.selectLastGroupId();
+                    mLocationClient.startLocation();
+                    beginRecordLocationTime=System.currentTimeMillis();//初始化开始定位时间
+                    distance=0;//初始化定位距离
+                    stopLocationButton.setText("停止定位，存储定位数据");
+                    stopOrStartLocation = false;
+                } else {
+                    mLocationClient.stopLocation();
+                    stopLocationButton.setText("开始定位，获取定位数据");
+                    stopOrStartLocation = true;
+                    //存储定位数据
+                    DBUtils.storeLocation(locationList);
+                    DBUtils.storeRunRecord(preGroupId+1,beginRecordLocationTime, distance);
+                    locationList.clear();
+                }
+                break;
+            case R.id.location_record:
+                Intent intent = new Intent(this, RecordActivity.class);
+                startActivity(intent);
+                break;
+            default:
+        }
+    }
     private void printLocationMessage(AMapLocation location) {
         StringBuffer sb = new StringBuffer();
         if (location.getErrorCode() == 0) {
@@ -268,37 +316,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         sb.append("* 网络耗时：" + location.getLocationQualityReport().getNetUseTime()).append("\n");
         sb.append("****************").append("\n");
         text.setText(sb.toString());
-    }
-
-    @Override
-    public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.button_info:
-                if (!displayLocation) {
-                    text.setVisibility(View.VISIBLE);
-                    displayLocation = true;
-                } else {
-                    text.setVisibility(View.GONE);
-                    displayLocation = false;
-                }
-                break;
-            case R.id.stop_location:
-                if (stopOrStartLocation) {
-                    groupId=DBUtils.selectLastGroupId();
-                    mLocationClient.startLocation();
-                    stopLocationButton.setText("停止定位，存储定位数据");
-                    stopOrStartLocation = false;
-                } else {
-                    mLocationClient.stopLocation();
-                    //存储定位数据
-                    stopLocationButton.setText("开始定位，获取定位数据");
-                    stopOrStartLocation = true;
-                    DBUtils.storeLocation(locationList);
-                    locationList.clear();
-                }
-                break;
-            default:
-        }
     }
 
     private String getLocationMessageString(int locationType) {
@@ -374,8 +391,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
+    public void addDrawDistance(AMapLocation curLocation) {
+        if(privLocation!=null)
+        distance += AMapUtils.calculateLineDistance(new LatLng(privLocation.getLatitude(),
+                privLocation.getLongitude()), new LatLng(curLocation.getLatitude(),
+                curLocation.getLongitude()));
+    }
     @Override
     protected void onDestroy() {
+        LogUtil.d("onDestroy", "onDestroy");
         super.onDestroy();
         //在activity执行onDestroy时执行mMapView.onDestroy()，销毁地图
         mMapView.onDestroy();
@@ -384,6 +408,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onResume() {
+        LogUtil.d("onResume", "onResume");
         super.onResume();
         //在activity执行onResume时执行mMapView.onResume ()，重新绘制加载地图
         mMapView.onResume();
@@ -391,6 +416,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onPause() {
+        LogUtil.d("onPause", "onPause");
         super.onPause();
 //        在activity执行onPause时执行mMapView.onPause ()，暂停地图的绘制
         mMapView.onPause();
@@ -398,6 +424,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
+        LogUtil.d("onSaveInstanceState", "onSaveInstanceState");
         super.onSaveInstanceState(outState);
 //        在activity执行onSaveInstanceState时执行mMapView.onSaveInstanceState (outState)，保存地图当前的状态
         mMapView.onSaveInstanceState(outState);

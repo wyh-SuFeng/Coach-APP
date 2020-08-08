@@ -24,7 +24,13 @@
         />
 </FrameLayout>
 
-
+    <Button
+        android:id="@+id/location_record"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="查看历史记录"
+        app:layout_constraintBottom_toTopOf="@+id/stop_location"
+        />
     <Button
         android:id="@+id/stop_location"
         android:layout_width="match_parent"

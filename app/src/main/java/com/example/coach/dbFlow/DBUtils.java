@@ -9,6 +9,7 @@ import com.amap.api.maps.model.LatLng;
 import com.amap.api.maps.model.PolylineOptions;
 import com.example.coach.MainActivity;
 import com.raizlabs.android.dbflow.config.FlowManager;
+import com.raizlabs.android.dbflow.sql.SqlUtils;
 import com.raizlabs.android.dbflow.sql.language.Delete;
 import com.raizlabs.android.dbflow.sql.language.SQLite;
 import com.raizlabs.android.dbflow.structure.database.DatabaseWrapper;
@@ -16,6 +17,7 @@ import com.raizlabs.android.dbflow.structure.database.transaction.ProcessModelTr
 import com.raizlabs.android.dbflow.structure.database.transaction.QueryTransaction;
 import com.raizlabs.android.dbflow.structure.database.transaction.Transaction;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -91,31 +93,38 @@ public class DBUtils {
         Delete.table(table);
     }
 
-    public static void deleteLocationGroup(int groupId) {
+    public static void deleteLocationRecordByGroupId(int groupId) {
+        SQLite.delete().from(LocationRecord.class).where(LocationRecord_Table.groupId .eq(groupId)).execute();
+
         //方式2:QueryResultListCallback：集合查询
-        SQLite.select().from(LocationRecord.class).where(LocationRecord_Table.groupId.is(groupId))
-                .async()//异步查询
-                .queryListResultCallback(new QueryTransaction.
-                        QueryResultListCallback<LocationRecord>() {
-                    @Override
-                    public void onListQueryResult(QueryTransaction transaction, @NonNull List<LocationRecord> tResult) {
-                        // printData(tResult);//更新UI
-                        for (LocationRecord locationRecord : tResult) {
-                            locationRecord.delete();
-                        }
-                    }
-                }).error(new Transaction.Error() {
-            @Override
-            public void onError(@NonNull Transaction transaction,
-                                @NonNull Throwable error) {
-                Log.i("查询定位结果", "" + error.getMessage());
-            }
-        }).success(new Transaction.Success() {
-            @Override
-            public void onSuccess(@NonNull Transaction transaction) {
-                Log.i("查询定位结果", "定位成功");
-            }
-        }).execute();
+//        SQLite.select().from(LocationRecord.class).where(LocationRecord_Table.groupId.is(groupId))
+//                .async()//异步查询
+//                .queryListResultCallback(new QueryTransaction.
+//                        QueryResultListCallback<LocationRecord>() {
+//                    @Override
+//                    public void onListQueryResult(QueryTransaction transaction, @NonNull List<LocationRecord> tResult) {
+//                        // printData(tResult);//更新UI
+//                        for (LocationRecord locationRecord : tResult) {
+//                            locationRecord.delete();
+//                        }
+//                    }
+//                }).error(new Transaction.Error() {
+//            @Override
+//            public void onError(@NonNull Transaction transaction,
+//                                @NonNull Throwable error) {
+//                Log.i("查询定位结果", "" + error.getMessage());
+//            }
+//        }).success(new Transaction.Success() {
+//            @Override
+//            public void onSuccess(@NonNull Transaction transaction) {
+//                Log.i("查询定位结果", "定位成功");
+//            }
+//        }).execute();
+    }
+
+    public static void deleteRunRecordByGroupId(int groupId) {
+        SQLite.delete().from(RunRecord.class).where(RunRecord_Table.groupId .eq( groupId)).execute();
+
     }
 
     public static int selectLastGroupId() {
@@ -127,5 +136,26 @@ public class DBUtils {
             Log.e(TAG, "selectLastGroupId: " + locationRecord.getGroupId());
             return locationRecord.getGroupId();
         }
+    }
+
+    public static void storeRunRecord(int groupId, long beginTime, double distance) {
+        long curTime=System.currentTimeMillis();
+        SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy-MM-dd");
+        SimpleDateFormat sdf2 = new SimpleDateFormat("HH:mm:ss");
+        new RunRecord()
+                .setGroupId(groupId)
+                .setTime(sdf1.format(beginTime))
+                .setDistance(distance)
+                .setDuration(sdf2.format((curTime - beginTime) - 8 * 60 * 60 * 1000))
+                .save();
+    }
+
+    public static List<RunRecord> selectAllRunRecord() {
+        Log.e(TAG, "selectAllRunRecord: " );
+        return SQLite.select().from(RunRecord.class).queryList();
+    }
+    public static List<LocationRecord> selectLocationByGroupId(int groupId) {
+        Log.e(TAG, "selectLocationByGroupId: " );
+        return SQLite.select().from(LocationRecord.class).where(LocationRecord_Table.groupId.eq(groupId)).queryList();
     }
 }
